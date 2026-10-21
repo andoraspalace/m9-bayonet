@@ -1,0 +1,58 @@
+# gradle
+
+.gradle/
+build/
+out/
+classes/
+
+# eclipse
+
+*.launch
+
+# idea
+
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# vscode
+
+.settings/
+.vscode/
+bin/
+.classpath
+.project
+
+# macos
+
+*.DS_Store
+
+# fabric
+
+run/
+
+# cs2 assets (Valve's files, never commit or publish)
+
+cs2-export/
+tools/cs2-vpk-index.tsv
+tools/cs2-chunks.txt
+tools/cs2-needed.txt
+tools/cs2-sounds.txt
+src/main/resources/assets/csmod/models/gltf/awp_asimov.glb
+src/main/resources/assets/csmod/models/gltf/m9_emerald.glb
+src/main/resources/assets/csmod/models/gltf/*_anims.glb
+src/main/resources/assets/csmod/sounds/
+src/main/resources/assets/csmod/sounds.json
+# the Counter-Strike logo, Valve's trademark
+src/main/resources/assets/csmod/icon.png
+# Source 2 Viewer's export error log
+exceptions.txt
+
+# java
+
+hs_err_*.log
+__pycache__/
+replay_*.log
+*.hprof
+*.jfr

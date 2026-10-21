@@ -1,0 +1,18 @@
+{
+	"required": true,
+	"package": "com.csmod.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"AvatarRendererMixin",
+		"CrossbowItemMixin",
+		"FirstPersonHandsAndItemsRendererMixin",
+		"HumanoidModelMixin",
+		"ItemInHandLayerMixin",
+		"ItemModelResolverMixin",
+		"MinecraftMixin",
+		"SoundManagerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
