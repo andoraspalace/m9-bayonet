@@ -5,9 +5,9 @@
 	"client": [
 		"AvatarRendererMixin",
 		"CrossbowItemMixin",
-		"FirstPersonHandsAndItemsRendererMixin",
 		"HumanoidModelMixin",
 		"ItemInHandLayerMixin",
+		"ItemInHandRendererMixin",
 		"ItemModelResolverMixin",
 		"MinecraftMixin",
 		"SoundManagerMixin"

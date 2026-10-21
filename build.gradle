@@ -30,7 +30,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 jar {
-	archiveFileName = "bayonet.jar"
+	archiveFileName = "bayonet-26.2.jar"
 }
 
 java {

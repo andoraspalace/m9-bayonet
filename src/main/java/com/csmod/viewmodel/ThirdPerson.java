@@ -5,9 +5,11 @@ import net.fabricmc.fabric.api.client.rendering.v1.RenderStateDataKey;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.entity.state.ArmedEntityRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Avatar;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix3f;
@@ -28,6 +30,10 @@ public final class ThirdPerson {
 	public static Matrix3f inModelSpace(Quaternionf turn, ModelPart head) {
 		Matrix3f view = new Matrix3f().rotationZYX(0.0F, head.yRot, head.xRot).mul(MODEL_FROM_CAMERA);
 		return new Matrix3f(view).mul(new Matrix3f().set(turn)).mul(view.transpose(new Matrix3f()));
+	}
+
+	public static HumanoidModel.ArmPose armPose(ArmedEntityRenderState state, HumanoidArm arm) {
+		return arm == HumanoidArm.RIGHT ? state.rightArmPose : state.leftArmPose;
 	}
 
 	public static boolean holdsKnife(HumanoidModel.ArmPose pose, ItemStack item, HumanoidModel.ArmPose otherPose) {

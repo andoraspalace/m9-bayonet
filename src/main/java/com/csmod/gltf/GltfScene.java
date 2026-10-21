@@ -104,10 +104,10 @@ public record GltfScene(List<Node> nodes, int[] order, List<Skin> skins, List<Pa
 				nodeWorld.normal(normalMatrix);
 
 				for (int v = 0; v < part.vertexCount(); v++) {
-					nodeWorld.transformPosition(scratch.set(in[v * 3], in[v * 3 + 1], in[v * 3 + 2])).get(out, v * 3);
+					store(nodeWorld.transformPosition(scratch.set(in[v * 3], in[v * 3 + 1], in[v * 3 + 2])), out, v * 3);
 
 					if (inNormals != null) {
-						normalMatrix.transform(scratch.set(inNormals[v * 3], inNormals[v * 3 + 1], inNormals[v * 3 + 2])).normalize().get(outNormals, v * 3);
+						store(normalMatrix.transform(scratch.set(inNormals[v * 3], inNormals[v * 3 + 1], inNormals[v * 3 + 2])).normalize(), outNormals, v * 3);
 					}
 				}
 
@@ -155,11 +155,11 @@ public record GltfScene(List<Node> nodes, int[] order, List<Skin> skins, List<Pa
 					float nx = inNormals[v * 3];
 					float ny = inNormals[v * 3 + 1];
 					float nz = inNormals[v * 3 + 2];
-					scratch.set(
+					store(scratch.set(
 						blended[0] * nx + blended[4] * ny + blended[8] * nz,
 						blended[1] * nx + blended[5] * ny + blended[9] * nz,
 						blended[2] * nx + blended[6] * ny + blended[10] * nz
-					).normalize().get(outNormals, v * 3);
+					).normalize(), outNormals, v * 3);
 				}
 			}
 		}
@@ -215,7 +215,7 @@ public record GltfScene(List<Node> nodes, int[] order, List<Skin> skins, List<Pa
 					}
 
 					for (int c = 0; c < 3; c++) {
-						edgeA.get(outNormals, base + c * 3);
+						store(edgeA, outNormals, base + c * 3);
 					}
 				}
 			}
@@ -224,5 +224,11 @@ public record GltfScene(List<Node> nodes, int[] order, List<Skin> skins, List<Pa
 		}
 
 		return new GltfModel(flat, this.images);
+	}
+
+	private static void store(Vector3f vector, float[] out, int offset) {
+		out[offset] = vector.x;
+		out[offset + 1] = vector.y;
+		out[offset + 2] = vector.z;
 	}
 }

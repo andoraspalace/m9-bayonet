@@ -43,10 +43,12 @@ public class GltfSpecialRenderer implements NoDataSpecialModelRenderer {
 	) {
 		for (GltfModel.Part part : this.model.parts()) {
 			Identifier texture = this.textures.get(part.image());
-			RenderType renderType = hasFoil
-					? RenderTypes.entitySolidGlint(texture)
-					: part.cutout() ? RenderTypes.entityCutout(texture) : RenderTypes.entitySolid(texture);
+			RenderType renderType = part.cutout() ? RenderTypes.entityCutout(texture) : RenderTypes.entitySolid(texture);
 			submitNodeCollector.submitCustomGeometry(poseStack, renderType, (pose, buffer) -> emit(part, pose, buffer, lightCoords, overlayCoords));
+
+			if (hasFoil) {
+				submitNodeCollector.submitCustomGeometry(poseStack, RenderTypes.entityGlint(), (pose, buffer) -> emit(part, pose, buffer, lightCoords, overlayCoords));
+			}
 		}
 	}
 

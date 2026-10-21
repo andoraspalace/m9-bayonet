@@ -53,7 +53,7 @@ abstract class HumanoidModelMixin {
 		ItemStack mainHand = state.mainArm == HumanoidArm.RIGHT ? state.rightHandItemStack : state.leftHandItemStack;
 
 		if (turn != null && turn.weapon() == Viewmodels.Weapon.AWP && Viewmodels.Weapon.of(mainHand) == Viewmodels.Weapon.AWP
-				&& state.getArmPose(state.mainArm) == HumanoidModel.ArmPose.CROSSBOW_HOLD) {
+				&& ThirdPerson.armPose(state, state.mainArm) == HumanoidModel.ArmPose.CROSSBOW_HOLD) {
 			Matrix3f delta = ThirdPerson.inModelSpace(turn.rotation(), this.head);
 			turnArm(this.rightArm, delta);
 			turnArm(this.leftArm, delta);

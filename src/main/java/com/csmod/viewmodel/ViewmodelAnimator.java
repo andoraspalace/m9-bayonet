@@ -8,9 +8,9 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -244,7 +244,7 @@ public final class ViewmodelAnimator {
 	}
 
 	public static boolean submit(
-		ItemStack visibleItem, @Nullable AvatarRenderState avatar, float partialTicks, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int lightCoords
+		ItemStack visibleItem, AbstractClientPlayer renderedPlayer, float partialTicks, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int lightCoords
 	) {
 		LocalPlayer player = Minecraft.getInstance().player;
 
@@ -271,7 +271,7 @@ public final class ViewmodelAnimator {
 			}
 		}
 
-		viewmodel.submit(current, avatar, poseStack, submitNodeCollector, lightCoords, player.getMainHandItem().hasFoil());
+		viewmodel.submit(current, renderedPlayer, poseStack, submitNodeCollector, lightCoords, player.getMainHandItem().hasFoil());
 		return true;
 	}
 }

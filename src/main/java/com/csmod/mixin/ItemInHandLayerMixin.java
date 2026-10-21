@@ -44,7 +44,7 @@ abstract class ItemInHandLayerMixin {
 				|| turn.weapon() != Viewmodels.Weapon.M9_BAYONET
 				|| arm != state.mainArm
 				|| !(state instanceof AvatarRenderState)
-				|| !ThirdPerson.holdsKnife(state.getArmPose(arm), itemStack, state.getArmPose(arm.getOpposite()))
+				|| !ThirdPerson.holdsKnife(ThirdPerson.armPose(state, arm), itemStack, ThirdPerson.armPose(state, arm.getOpposite()))
 				|| !(((RenderLayer<?, ?>) (Object) this).getParentModel() instanceof HumanoidModel<?> model)) {
 			return;
 		}

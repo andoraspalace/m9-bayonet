@@ -13,7 +13,7 @@ abstract class MinecraftMixin {
 		method = "startAttack",
 		at = @At(
 			value = "INVOKE",
-			target = "Lnet/minecraft/client/player/LocalPlayer;swing(Lnet/minecraft/world/InteractionHand;Lnet/minecraft/world/item/component/SwingAnimation;Z)Z"
+			target = "Lnet/minecraft/client/player/LocalPlayer;swing(Lnet/minecraft/world/InteractionHand;)V"
 		)
 	)
 	private void csmod$onAttack(CallbackInfoReturnable<Boolean> cir) {

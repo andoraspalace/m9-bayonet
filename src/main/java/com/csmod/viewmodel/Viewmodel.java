@@ -7,14 +7,15 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.io.IOException;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
-import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.player.PlayerModelPart;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
@@ -109,16 +110,16 @@ final class Viewmodel {
 	}
 
 	void submit(
-		Pose pose, @Nullable AvatarRenderState avatar, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int lightCoords, boolean hasFoil
+		Pose pose, AbstractClientPlayer player, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int lightCoords, boolean hasFoil
 	) {
 		Matrix4f[] rigWorld = this.rig.worldMatrices(pose.localMatrices());
 		poseStack.pushPose();
 		poseStack.scale(FOV_SCALE, FOV_SCALE, 1.0F);
 
-		if (avatar != null && !avatar.isInvisible) {
+		if (!player.isInvisible()) {
 			for (ArmBones arm : new ArmBones[]{this.rightArm, this.leftArm}) {
 				if (arm != null) {
-					submitArm(arm.side(), fistPlacement(arm, rigWorld), avatar, poseStack, submitNodeCollector, lightCoords);
+					submitArm(arm.side(), fistPlacement(arm, rigWorld), player, poseStack, submitNodeCollector, lightCoords);
 				}
 			}
 		}
@@ -145,14 +146,18 @@ final class Viewmodel {
 		for (int p = 0; p < this.model.parts().size(); p++) {
 			GltfScene.Part part = this.model.parts().get(p);
 			Identifier texture = this.textures.get(part.image());
-			RenderType renderType = hasFoil
-					? RenderTypes.entitySolidGlint(texture)
-					: part.cutout() ? RenderTypes.entityCutout(texture) : RenderTypes.entitySolid(texture);
+			RenderType renderType = part.cutout() ? RenderTypes.entityCutout(texture) : RenderTypes.entitySolid(texture);
 			float[] partPositions = this.positions[p];
 			float[] partNormals = this.normals[p];
 			submitNodeCollector.submitCustomGeometry(
 				poseStack, renderType, (cameraPose, buffer) -> emit(part, partPositions, partNormals, cameraPose, buffer, lightCoords)
 			);
+
+			if (hasFoil) {
+				submitNodeCollector.submitCustomGeometry(
+					poseStack, RenderTypes.entityGlint(), (cameraPose, buffer) -> emit(part, partPositions, partNormals, cameraPose, buffer, lightCoords)
+				);
+			}
 
 			if (part.reflectivity() != null && part.normals() != null && reflections > 0.0F) {
 				submitNodeCollector.submitCustomGeometry(
@@ -180,7 +185,7 @@ final class Viewmodel {
 	}
 
 	private static void submitArm(
-		HumanoidArm arm, Matrix4f fist, AvatarRenderState avatar, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int lightCoords
+		HumanoidArm arm, Matrix4f fist, AbstractClientPlayer player, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int lightCoords
 	) {
 		boolean right = arm == HumanoidArm.RIGHT;
 		float side = right ? 1.0F : -1.0F;
@@ -192,13 +197,13 @@ final class Viewmodel {
 
 		poseStack.pushPose();
 		poseStack.mulPose(place);
-		AvatarRenderer<?> renderer = Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(avatar);
-		Identifier skin = avatar.skin.body().texturePath();
+		AvatarRenderer<AbstractClientPlayer> renderer = Minecraft.getInstance().getEntityRenderDispatcher().getPlayerRenderer(player);
+		Identifier skin = player.getSkin().body().texturePath();
 
 		if (right) {
-			renderer.renderRightHand(poseStack, submitNodeCollector, lightCoords, skin, avatar.showRightSleeve);
+			renderer.renderRightHand(poseStack, submitNodeCollector, lightCoords, skin, player.isModelPartShown(PlayerModelPart.RIGHT_SLEEVE));
 		} else {
-			renderer.renderLeftHand(poseStack, submitNodeCollector, lightCoords, skin, avatar.showLeftSleeve);
+			renderer.renderLeftHand(poseStack, submitNodeCollector, lightCoords, skin, player.isModelPartShown(PlayerModelPart.LEFT_SLEEVE));
 		}
 
 		poseStack.popPose();

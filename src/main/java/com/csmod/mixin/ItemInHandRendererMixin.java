@@ -3,10 +3,9 @@ package com.csmod.mixin;
 import com.csmod.viewmodel.ViewmodelAnimator;
 import com.csmod.viewmodel.Viewmodels;
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.state.level.FirstPersonHandsAndItemsRenderState;
-import net.minecraft.client.renderer.state.level.PlayerRenderState;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,12 +13,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(FirstPersonHandsAndItemsRenderer.class)
-abstract class FirstPersonHandsAndItemsRendererMixin {
+@Mixin(ItemInHandRenderer.class)
+abstract class ItemInHandRendererMixin {
 	@Inject(method = "submitArmWithItem", at = @At("HEAD"), cancellable = true)
 	private void csmod$submitViewmodel(
-		PlayerRenderState playerState,
-		FirstPersonHandsAndItemsRenderState state,
+		AbstractClientPlayer player,
 		float partialTicks,
 		float xRot,
 		InteractionHand hand,
@@ -35,8 +33,7 @@ abstract class FirstPersonHandsAndItemsRendererMixin {
 			if (Viewmodels.Weapon.of(itemStack) != null) {
 				ci.cancel();
 			}
-		} else if (!state.isScoping
-				&& ViewmodelAnimator.submit(itemStack, playerState.avatarRenderState, partialTicks, poseStack, submitNodeCollector, lightCoords)) {
+		} else if (!player.isScoping() && ViewmodelAnimator.submit(itemStack, player, partialTicks, poseStack, submitNodeCollector, lightCoords)) {
 			ci.cancel();
 		}
 	}
