@@ -9,14 +9,16 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-EXPORT = Path("cs2-export")
-ASSETS = Path("src/main/resources/assets/csmod")
+ROOT = Path(__file__).resolve().parent.parent
+EXPORT = ROOT / "cs2-export"
+ASSETS = ROOT / "src/main/resources/assets/bayonet"
 OUT = ASSETS / "models/gltf"
-PAINTS = EXPORT / "materials/models/weapons/customization/paints"
-SHARED = EXPORT / "materials/models/weapons/customization/shared"
+WEAR = ASSETS / "wear"
+WEAR_SIZE = 1024
 CLIPS = EXPORT / "animation/anims/viewmodel"
 SOUND_EVENTS = EXPORT / "soundevents/game_sounds_weapons.vsndevts.data.txt"
 TEXTURE_SIZE = 2048
+REFLECTIVITY_SIZE = TEXTURE_SIZE // 8
 
 LOUDNESS_RATIO = 0.45
 
@@ -29,7 +31,7 @@ GAME_SOUNDS = [
     "Weapon_Knife.Hit.Heavy.Backstab.Flesh",
 ]
 
-ASIMOV_WEAR = 0.0
+LEGACY_WEAR = {"wear_maps": "awp_legacy"}
 
 
 def load(path, size=None):
@@ -43,6 +45,8 @@ def find(pattern):
     matches = sorted(EXPORT.glob(pattern))
     if not matches:
         raise SystemExit(f"nothing in {EXPORT} matches {pattern}; re-run the Source 2 Viewer export")
+    if len(matches) > 1:
+        raise SystemExit(f"{pattern} matches {len(matches)} files in {EXPORT}: {', '.join(str(m.relative_to(EXPORT)) for m in matches)}; delete the stale exports")
     return matches[0]
 
 
@@ -50,12 +54,9 @@ def to_uint8(rgb):
     return (np.clip(rgb, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)
 
 
-def to_png(rgb, size=TEXTURE_SIZE):
-    image = Image.fromarray(to_uint8(rgb), "RGB")
-    if image.size != (size, size):
-        image = image.resize((size, size), Image.LANCZOS)
+def to_png(rgb):
     out = BytesIO()
-    image.save(out, "PNG", optimize=True)
+    Image.fromarray(to_uint8(rgb), "RGB").save(out, "PNG", optimize=True)
     return out.getvalue()
 
 
@@ -74,30 +75,34 @@ def material_params(path):
     return params
 
 
-def bake_asimov():
-    size = TEXTURE_SIZE
-    paint = load(find("materials/**/paints/custom/workshop/zone9_awp_tga_*.png"), size)
-    substrate = load(find("materials/models/weapons/v_models/snip_awp/awp_substrate_color_psd_*.png"), size)
-    ao = load(find("materials/models/weapons/v_models/snip_awp/awp_ao_psd_*.png"), size)[..., 0]
-    wear = load(find("materials/**/shared/paint_wear_psd_*.png"), size)[..., 0]
-    grunge = load(find("materials/**/shared/gun_grunge_psd_*.png"), size)[..., :3]
+def bake_custom_paint(pattern):
+    paint = load(pattern, TEXTURE_SIZE)
+    ao = load(find("materials/models/weapons/v_models/snip_awp/awp_ao_psd_*.png"), TEXTURE_SIZE)[..., 0]
+    return paint[..., :3] * (0.35 + 0.65 * ao[..., None])
 
-    color = paint[..., :3]
-    if ASIMOV_WEAR > 0.0:
-        resistance = (wear - 0.3) / 0.7 * (1.0 - 0.8 * substrate[..., 3])
-        painted = smoothstep(ASIMOV_WEAR * 0.45, ASIMOV_WEAR * 0.55, resistance)
-        color = substrate[..., :3] + (color - substrate[..., :3]) * painted[..., None]
-        color *= 1.0 + (grunge - 1.0) * ASIMOV_WEAR * 0.6
-    return color * (0.35 + 0.65 * ao[..., None])
+
+def paint_reflectivity(alpha, low, span):
+    gloss = 0.55 + 0.45 * np.clip((alpha - low) / span, 0.0, 1.0)
+    return np.dstack([np.full(alpha.shape + (3,), 0.16, np.float32), gloss])
+
+
+def metal_reflectivity(color, rough, metal):
+    tint = color / np.maximum(color.max(axis=2, keepdims=True), 1e-3) * 0.8
+    return np.dstack([0.06 + (tint - 0.06) * metal[..., None], 1.0 - rough])
+
+
+def reflectivity_custom_paint(pattern):
+    alpha = load(pattern, REFLECTIVITY_SIZE)[..., 3]
+    low, high = np.percentile(alpha, 5), np.percentile(alpha, 95)
+    return paint_reflectivity(alpha, low, max(high - low, 1e-3))
 
 
 def bake_emerald():
     params = material_params(find("materials/**/paints/vmats/am_emerald_marbleized.vmat.data.txt"))
-    knife = EXPORT / "weapons/models/knife/knife_m9/materials/composite_inputs"
     size = TEXTURE_SIZE
     base = load(find("materials/models/weapons/v_models/knife_m9_bay/knife_m9_bay_color_psd_*.png"), size)
-    masks = load(next(knife.glob("knife_m9_bay_masks_psd_*.png")), size)
-    ao = load(next(knife.glob("knife_m9_bay_ao_psd_*.png")), size)[..., 0]
+    masks = load(find("weapons/models/knife/knife_m9/materials/composite_inputs/knife_m9_bay_masks_psd_*.png"), size)
+    ao = load(find("weapons/models/knife/knife_m9/materials/composite_inputs/knife_m9_bay_ao_psd_*.png"), size)[..., 0]
     pattern = load(find("materials/**/paints/anodized_multi/smoke2_psd_*.png"))
 
     scale = params["g_flPatternTexCoordScale"]
@@ -117,26 +122,61 @@ def bake_emerald():
     return base[..., :3] + (anodized - base[..., :3]) * blade
 
 
-def reflectivity_asimov():
-    size = TEXTURE_SIZE // 8
-    alpha = load(find("materials/**/paints/custom/workshop/zone9_awp_tga_*.png"), size)[..., 3]
-    gloss = 0.55 + 0.45 * np.clip((alpha - 16 / 255) / (58 / 255), 0.0, 1.0)
-    return np.dstack([np.full((size, size, 3), 0.16, np.float32), gloss])
+def awp_default_maps(size):
+    color = load(find("weapons/models/awp/materials/awp_default_color_psd_*.png"), size)[..., :3]
+    orm = load(find("weapons/models/awp/awp_default_ao_png_*_orm_*.png"), size)
+    return color, orm[..., 0], orm[..., 1], orm[..., 2]
+
+
+def bake_awp_default():
+    color, ao, _, _ = awp_default_maps(TEXTURE_SIZE)
+    return color * (0.35 + 0.65 * ao[..., None])
+
+
+def reflectivity_awp_default():
+    color, _, rough, metal = awp_default_maps(REFLECTIVITY_SIZE)
+    return metal_reflectivity(color, rough, metal)
+
+
+def save_rgba(path, rgb, alpha):
+    Image.fromarray(to_uint8(np.dstack([rgb, alpha])), "RGBA").save(path, "PNG", optimize=True)
+    print(f"{path}: {path.stat().st_size // 1024} KB")
+
+
+def build_wear_maps():
+    WEAR.mkdir(parents=True, exist_ok=True)
+    legacy = load(find("materials/models/weapons/v_models/snip_awp/awp_substrate_color_psd_*.png"), WEAR_SIZE)
+    legacy_ao = load(find("materials/models/weapons/v_models/snip_awp/awp_ao_psd_*.png"), WEAR_SIZE)[..., 0]
+    save_rgba(WEAR / "awp_legacy.png", legacy[..., :3] * (0.35 + 0.65 * legacy_ao[..., None]), legacy[..., 3])
+    wear = load(find("materials/**/shared/paint_wear_psd_*.png"), WEAR_SIZE)[..., 0]
+    grunge = load(find("materials/**/shared/gun_grunge_psd_*.png"), WEAR_SIZE)[..., :3]
+    save_rgba(WEAR / "shared.png", np.dstack([wear, grunge[..., 0], grunge[..., 1]]), grunge[..., 2])
+
+
+def bake_stattrak_module():
+    color = load(find("weapons/models/shared/stattrak/materials/stattrak_module_color_tga_*.png"))
+    ao = load(find("weapons/models/shared/stattrak/materials/stattrak_module_ao_tga_*.png"), color.shape[0])[..., 0]
+    return color[..., :3] * (0.35 + 0.65 * ao[..., None])
+
+
+def reflectivity_asimov(pattern):
+    alpha = load(pattern, REFLECTIVITY_SIZE)[..., 3]
+    return paint_reflectivity(alpha, 16 / 255, 58 / 255)
 
 
 def reflectivity_scope_lens():
     return np.array([[[0.08, 0.1, 0.16, 1.0]]], np.float32)
 
 
-def reflectivity_emerald():
-    size = TEXTURE_SIZE // 8
+def bake_m9_default():
+    return load(find("materials/models/weapons/v_models/knife_m9_bay/knife_m9_bay_color_psd_*.png"), TEXTURE_SIZE)[..., :3]
+
+
+def reflectivity_knife(baked):
     knife = EXPORT / "weapons/models/knife/knife_m9/materials/composite_inputs"
-    rough = load(knife / "knife_m9_bay_rough.png", size)
-    color = np.asarray(Image.fromarray(to_uint8(bake_emerald())).resize((size, size), Image.BOX), np.float32) / 255.0
-    metal = rough[..., 1:2]
-    tint = color / np.maximum(color.max(axis=2, keepdims=True), 1e-3) * 0.8
-    specular = 0.06 + (tint - 0.06) * metal
-    return np.dstack([specular, 1.0 - rough[..., 0]])
+    rough = load(knife / "knife_m9_bay_rough.png", REFLECTIVITY_SIZE)
+    color = np.asarray(Image.fromarray(to_uint8(baked)).resize((REFLECTIVITY_SIZE, REFLECTIVITY_SIZE), Image.BOX), np.float32) / 255.0
+    return metal_reflectivity(color, rough[..., 0], rough[..., 1])
 
 
 def sample_per_vertex(image, uvs):
@@ -192,10 +232,11 @@ def write_glb(path, gltf, binary):
                      + struct.pack("<II", len(binary), 0x004E4942) + binary)
 
 
-def build(source, target, drop_nodes=(), textures=None, reflectivity=None):
+def build(source, target, drop_nodes=(), textures=None, reflectivity=None, extras=None):
     gltf, binary = read_glb(source)
     textures = textures or {}
     reflectivity = reflectivity or {}
+    extras = extras or {}
 
     for node in gltf["nodes"]:
         if "mesh" in node and any(d in node.get("name", "") for d in drop_nodes):
@@ -227,6 +268,8 @@ def build(source, target, drop_nodes=(), textures=None, reflectivity=None):
             images.append(png)
         material.clear()
         material.update({"name": name, "pbrMetallicRoughness": pbr})
+        if name in extras:
+            material["extras"] = extras[name]
 
     packer = Packer()
     copied = {}
@@ -267,6 +310,8 @@ def build(source, target, drop_nodes=(), textures=None, reflectivity=None):
 
 def build_clips(folder, suffix, target):
     clips = sorted(folder.glob("*.glb"))
+    if not clips:
+        raise SystemExit(f"no clips in {folder}; re-run the Source 2 Viewer export")
     gltf, _ = read_glb(clips[0])
     names = [n.get("name") for n in gltf["nodes"]]
     for node in gltf["nodes"]:
@@ -378,7 +423,7 @@ def build_sounds():
             target = out / sound_id(name) / f"{stem}.ogg"
             target.parent.mkdir(parents=True, exist_ok=True)
             soundfile.write(target, data * baked, rate, format="OGG", subtype="VORBIS")
-            entry = {"name": f"csmod:{sound_id(name)}/{stem}"}
+            entry = {"name": f"bayonet:{sound_id(name)}/{stem}"}
             if gain / baked < 0.999:
                 entry["volume"] = round(gain / baked, 3)
             if definition["pitch"] != 1.0:
@@ -432,7 +477,7 @@ class Packer:
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser()
     parser.add_argument("--list-sounds", action="store_true", help="print the sound files to export, then stop")
     args = parser.parse_args()
     if args.list_sounds:
@@ -442,20 +487,51 @@ def main():
         return
 
     OUT.mkdir(parents=True, exist_ok=True)
+    asimov = find("materials/**/paints/custom/workshop/zone9_awp_tga_*.png")
     build(
         EXPORT / "weapons/models/awp/weapon_snip_awp.glb", OUT / "awp_asimov.glb",
         drop_nodes=["body_hd"],
-        textures={"awp": bake_asimov(), "shared_scope": find("weapons/models/awp/shared_scope_vmat_g_tcolor_*.png")},
-        reflectivity={"awp": reflectivity_asimov(), "shared_scope": reflectivity_scope_lens()},
+        textures={"awp": bake_custom_paint(asimov), "shared_scope": find("weapons/models/awp/shared_scope_vmat_g_tcolor_*.png")},
+        reflectivity={"awp": reflectivity_asimov(asimov), "shared_scope": reflectivity_scope_lens()},
+        extras={"awp": LEGACY_WEAR},
     )
     build(
-        EXPORT / "weapons/models/knife/knife_m9/weapon_knife_m9.glb", OUT / "m9_emerald.glb",
-        textures={"weapon_knife_m9": bake_emerald()},
-        reflectivity={"weapon_knife_m9": reflectivity_emerald()},
+        EXPORT / "weapons/models/awp/weapon_snip_awp.glb", OUT / "awp_default.glb",
+        drop_nodes=["body_legacy"],
+        textures={"weapon_snip_awp": bake_awp_default()},
+        reflectivity={"weapon_snip_awp": reflectivity_awp_default()},
     )
-    anims = EXPORT / "animation/anims/viewmodel"
-    build_clips(anims / "rifle/rifle_awp", "_awp", OUT / "awp_anims.glb")
-    build_clips(anims / "knife/knife_m9", "_m9", OUT / "m9_anims.glb")
+    dragon = find("materials/models/weapons/customization/paints/custom/dragon_awp_psd_*.png")
+    build(
+        EXPORT / "weapons/models/awp/weapon_snip_awp.glb", OUT / "awp_dragon_lore.glb",
+        drop_nodes=["body_hd"],
+        textures={"awp": bake_custom_paint(dragon), "shared_scope": find("weapons/models/awp/shared_scope_vmat_g_tcolor_*.png")},
+        reflectivity={"awp": reflectivity_custom_paint(dragon), "shared_scope": reflectivity_scope_lens()},
+        extras={"awp": LEGACY_WEAR},
+    )
+    emerald = bake_emerald()
+    build(
+        EXPORT / "weapons/models/knife/knife_m9/weapon_knife_m9.glb", OUT / "m9_emerald.glb",
+        textures={"weapon_knife_m9": emerald},
+        reflectivity={"weapon_knife_m9": reflectivity_knife(emerald)},
+    )
+    m9 = bake_m9_default()
+    build(
+        EXPORT / "weapons/models/knife/knife_m9/weapon_knife_m9.glb", OUT / "m9_default.glb",
+        textures={"weapon_knife_m9": m9},
+        reflectivity={"weapon_knife_m9": reflectivity_knife(m9)},
+    )
+    stattrak = EXPORT / "weapons/models/shared/stattrak"
+    build(
+        stattrak / "stattrak_module.glb", OUT / "stattrak_module.glb",
+        textures={
+            "stattrak_module": bake_stattrak_module(),
+            "stattrak_module_display": find("weapons/models/shared/stattrak/materials/stattrak_digit_atlas_psd_*.png"),
+        },
+    )
+    build_wear_maps()
+    build_clips(CLIPS / "rifle/rifle_awp", "_awp", OUT / "awp_anims.glb")
+    build_clips(CLIPS / "knife/knife_m9", "_m9", OUT / "m9_anims.glb")
     build_sounds()
 
 

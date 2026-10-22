@@ -4,7 +4,7 @@ plugins {
 
 loom {
 	mods {
-		"csmod" {
+		"bayonet" {
 			sourceSet sourceSets.main
 		}
 	}
@@ -31,6 +31,9 @@ tasks.withType(JavaCompile).configureEach {
 
 jar {
 	archiveFileName = "bayonet-26.2.jar"
+	from("LICENSE") {
+		rename { "LICENSE_bayonet" }
+	}
 }
 
 java {
