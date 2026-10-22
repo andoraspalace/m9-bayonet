@@ -1,0 +1,16 @@
+{
+  "key.category.bayonet.weapons": "CS Weapons",
+  "key.bayonet.inspect": "Inspect Weapon",
+  "tooltip.bayonet.stattrak": "StatTrak™ Confirmed Kills: %s",
+  "message.bayonet.glint_on": "Enchantment glint on CS weapons: on",
+  "message.bayonet.glint_off": "Enchantment glint on CS weapons: off",
+  "key.bayonet.reload": "Reload Weapon",
+  "tooltip.bayonet.exterior": "Exterior: %s",
+  "tooltip.bayonet.phase": "Phase: %s",
+  "phase.bayonet.emerald": "Emerald",
+  "exterior.bayonet.factory_new": "Factory New",
+  "exterior.bayonet.minimal_wear": "Minimal Wear",
+  "exterior.bayonet.field_tested": "Field-Tested",
+  "exterior.bayonet.well_worn": "Well-Worn",
+  "exterior.bayonet.battle_scarred": "Battle-Scarred"
+}

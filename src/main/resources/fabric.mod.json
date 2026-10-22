@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
-	"id": "csmod",
+	"id": "bayonet",
 	"version": "${version}",
 	"name": "M9 Bayonet",
 	"description": "Counter-Strike weapons, animations and sounds for the HugoSMP.net Halloween event.",
@@ -8,15 +8,15 @@
 		"andoraspalace"
 	],
 	"license": "GPL-3.0-or-later",
-	"icon": "assets/csmod/icon.png",
+	"icon": "assets/bayonet/icon.png",
 	"environment": "client",
 	"entrypoints": {
 		"client": [
-			"com.csmod.CsModClient"
+			"com.bayonet.BayonetClient"
 		]
 	},
 	"mixins": [
-		"csmod.mixins.json"
+		"bayonet.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.19.5",

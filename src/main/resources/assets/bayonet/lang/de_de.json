@@ -1,0 +1,17 @@
+{
+  "key.category.bayonet.weapons": "CS-Waffen",
+  "key.bayonet.inspect": "Waffe inspizieren",
+  "modmenu.descriptionTranslation.bayonet": "Counter-Strike-Waffen, -Animationen und -Sounds für das Halloween-Event von HugoSMP.net.",
+  "tooltip.bayonet.stattrak": "StatTrak™-bestätigte Kills: %s",
+  "message.bayonet.glint_on": "Verzauberungsglanz auf CS-Waffen: an",
+  "message.bayonet.glint_off": "Verzauberungsglanz auf CS-Waffen: aus",
+  "key.bayonet.reload": "Waffe nachladen",
+  "tooltip.bayonet.exterior": "Zustand: %s",
+  "tooltip.bayonet.phase": "Phase: %s",
+  "phase.bayonet.emerald": "Smaragd",
+  "exterior.bayonet.factory_new": "Fabrikneu",
+  "exterior.bayonet.minimal_wear": "Minimale Gebrauchsspuren",
+  "exterior.bayonet.field_tested": "Einsatzerprobt",
+  "exterior.bayonet.well_worn": "Abgenutzt",
+  "exterior.bayonet.battle_scarred": "Kampfspuren"
+}

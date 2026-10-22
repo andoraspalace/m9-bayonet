@@ -1,0 +1,11 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "bayonet:item/m9_bayonet",
+    "model": {
+      "type": "bayonet:gltf",
+      "model": "bayonet:m9_default",
+      "rotation": [90, 0, 270]
+    }
+  }
+}

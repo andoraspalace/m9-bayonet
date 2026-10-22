@@ -1,0 +1,26 @@
+{
+	"required": true,
+	"package": "com.bayonet.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"AnvilMixin",
+		"ArmedEntityRenderStateMixin",
+		"AvatarRendererMixin",
+		"CrossbowItemMixin",
+		"EntityRendererMixin",
+		"FirstPersonHandsAndItemsRendererMixin",
+		"HudMixin",
+		"HumanoidModelMixin",
+		"ItemFrameRendererMixin",
+		"ItemInHandLayerMixin",
+		"ItemModelResolverMixin",
+		"ItemStackMixin",
+		"LivingEntityMixin",
+		"MinecraftMixin",
+		"SoundManagerMixin",
+		"SpecialModelWrapperMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

@@ -2,6 +2,7 @@ import argparse
 import re
 import struct
 import sys
+import zlib
 from collections import defaultdict
 from pathlib import Path
 
@@ -9,11 +10,10 @@ DEFAULT_PATTERNS = [
     r"^weapons/models/awp/(?!materials/stickers/)",
     r"^weapons/models/knife/knife_m9/",
     r"^materials/models/weapons/customization/snip_awp/",
-    r"^weapons/models/shared/arms/",
-    r"^agents/models/shared/arms/glove_(fingerless|hardknuckle)/",
     r"^animation/anims/viewmodel/(rifle/rifle_awp|knife/knife_m9)/",
     r"^animation/skeletons/(weapons/(awp|knife_m9)|characters/viewmodel)\.",
-    r"/(cu_awp_asimov|am_emerald_marbleized)\.v(comp)?mat_c$",
+    r"/(cu_awp_asimov|cu_medieval_dragon_awp|am_emerald_marbleized)\.v(comp)?mat_c$",
+    r"^weapons/models/shared/stattrak/stattrak_module\.vmdl_c$",
     r"^scripts/items/items_game\.txt$",
 ]
 
@@ -27,6 +27,7 @@ DEFAULT_SKIP = [
 VPK_SIGNATURE = 0x55AA1234
 HEADER_SIZE = {1: 12, 2: 28}
 DIR_ARCHIVE = 0x7FFF
+TOOLS = Path(__file__).resolve().parent
 
 
 def read_entries(path):
@@ -49,7 +50,7 @@ def read_entries(path):
     while ext := cstr():
         while folder := cstr():
             while name := cstr():
-                _crc, preload, archive, offset, length, terminator = struct.unpack_from("<IHHIIH", data, pos)
+                crc, preload, archive, offset, length, terminator = struct.unpack_from("<IHHIIH", data, pos)
                 if terminator != 0xFFFF:
                     sys.exit(f"corrupt VPK tree at byte {pos}")
                 pos += 18 + preload
@@ -58,7 +59,7 @@ def read_entries(path):
                     full = f"{folder}/{full}"
                 if archive == DIR_ARCHIVE:
                     offset += data_start
-                yield full, archive, offset, length, data[pos - preload:pos]
+                yield full, archive, offset, length, data[pos - preload:pos], crc
 
 
 def external_refs(data):
@@ -86,15 +87,15 @@ def external_refs(data):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser()
     ap.add_argument("dir_vpk", help="path to pak01_dir.vpk")
     ap.add_argument("-p", "--pattern", action="append", help="regex to match (repeatable, replaces the defaults)")
     ap.add_argument("--files", action="append", default=[], help="text file of exact VPK paths to add, one per line")
     ap.add_argument("--deps", action="store_true", help="also add what downloaded files reference")
     ap.add_argument("--skip", action="append", help="regex of dependencies to leave out (repeatable, replaces the defaults)")
-    ap.add_argument("-o", "--out", default="tools/cs2-chunks.txt", help="DepotDownloader filelist to write")
-    ap.add_argument("--needed", default="tools/cs2-needed.txt", help="every file to export, one per line")
-    ap.add_argument("--index", default="tools/cs2-vpk-index.tsv", help="every entry as path, archive, bytes")
+    ap.add_argument("-o", "--out", default=TOOLS / "cs2-chunks.txt", help="DepotDownloader filelist to write")
+    ap.add_argument("--needed", default=TOOLS / "cs2-needed.txt", help="every file to export, one per line")
+    ap.add_argument("--index", default=TOOLS / "cs2-vpk-index.tsv", help="every entry as path, archive, bytes")
     ap.add_argument("--depot-dir", default="game/csgo", help="folder of the VPK inside the depot")
     args = ap.parse_args()
 
@@ -109,9 +110,9 @@ def main():
     wanted = []
 
     with open(args.index, "w", encoding="utf-8") as index:
-        for path, archive, offset, length, preload in read_entries(dir_vpk):
+        for path, archive, offset, length, preload, crc in read_entries(dir_vpk):
             index.write(f"{path}\t{archive}\t{length + len(preload)}\n")
-            entries[path] = (archive, offset, length, preload)
+            entries[path] = (archive, offset, length, preload, crc)
             if archive != DIR_ARCHIVE:
                 chunk_size[archive] = max(chunk_size[archive], offset + length)
             if path in listed:
@@ -128,7 +129,7 @@ def main():
         return dir_vpk if archive == DIR_ARCHIVE else dir_vpk.with_name(f"{prefix}_{archive:03d}.vpk")
 
     def read(path):
-        archive, offset, length, preload = entries[path]
+        archive, offset, length, preload, crc = entries[path]
         if not length:
             return preload
         chunk = chunk_path(archive)
@@ -136,7 +137,8 @@ def main():
             return None
         with open(chunk, "rb") as f:
             f.seek(offset)
-            return preload + f.read(length)
+            data = preload + f.read(length)
+        return data if zlib.crc32(data) == crc else None
 
     needed = set(wanted)
     unread = set()
