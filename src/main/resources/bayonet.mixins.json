@@ -8,7 +8,6 @@
 		"AvatarRendererMixin",
 		"CrossbowItemMixin",
 		"EntityRendererMixin",
-		"HudMixin",
 		"HumanoidModelMixin",
 		"ItemFrameRendererMixin",
 		"ItemInHandLayerMixin",

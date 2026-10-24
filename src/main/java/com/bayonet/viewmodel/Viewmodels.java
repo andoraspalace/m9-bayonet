@@ -1,148 +1,125 @@
 package com.bayonet.viewmodel;
 
-import com.bayonet.BayonetClient;
-import com.bayonet.gltf.GlbLoader;
-import com.bayonet.gltf.GltfAnimation;
 import com.bayonet.gltf.GltfScene;
-import com.bayonet.render.GltfTextures;
-import com.bayonet.render.Wear;
+import com.bayonet.render.SceneCache;
+import com.bayonet.util.ModIds;
+import com.bayonet.weapon.Skin;
+import com.bayonet.weapon.Weapon;
 import com.mojang.logging.LogUtils;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import net.fabricmc.fabric.api.resource.v1.reloader.SimpleReloadListener;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.item.ItemStack;
-import org.joml.Vector3f;
-import org.joml.Vector3fc;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 public final class Viewmodels {
 	private static final Logger LOGGER = LogUtils.getLogger();
-	private static Map<String, Viewmodel> loaded = Map.of();
+	private static final String STATTRAK_MODEL = "stattrak_module";
+	private static final List<String> ARM_MODELS = List.of("arms", "sleeves");
+	private static final List<Runnable> RELOAD_OBSERVERS = new ArrayList<>();
+	private static Map<Skin, Viewmodel> loaded = Map.of();
 
 	private Viewmodels() {
 	}
 
-	public enum Weapon {
-		AWP("awp_asimov", "awp_anims", "draw", "idle", "lookat01", false, new Vector3f(), Float.NaN),
-		M9_BAYONET("m9_default", "m9_anims", "draw", "idle1", "lookat01", true, new Vector3f(-0.0018F, 0.0371F, -0.0002F), 0.025F);
-
-		final String model;
-		final String clips;
-		final String draw;
-		final String idle;
-		final String inspect;
-		final boolean oneHanded;
-		final Vector3fc gripShift;
-		final float handleEnd;
-
-		Weapon(String model, String clips, String draw, String idle, String inspect, boolean oneHanded, Vector3fc gripShift, float handleEnd) {
-			this.model = model;
-			this.clips = clips;
-			this.draw = draw;
-			this.idle = idle;
-			this.inspect = inspect;
-			this.oneHanded = oneHanded;
-			this.gripShift = gripShift;
-			this.handleEnd = handleEnd;
-		}
-
-		public static @Nullable Weapon of(ItemStack stack) {
-			Skin.Look look = plainLook(stack);
-			return look != null ? look.skin().weapon : null;
-		}
-
-		public static @Nullable Identifier definition(ItemStack stack) {
-			Skin.Look look = plainLook(stack);
-			return look != null ? look.skin().definition() : null;
-		}
-
-		private static Skin.@Nullable Look plainLook(ItemStack stack) {
-			Skin.Look look = Skin.of(stack);
-			return look != null && isPlain(stack) ? look : null;
-		}
-
-		private static boolean isPlain(ItemStack stack) {
-			return !stack.has(DataComponents.CUSTOM_MODEL_DATA)
-					&& Objects.equals(stack.get(DataComponents.ITEM_MODEL), stack.getPrototype().get(DataComponents.ITEM_MODEL));
-		}
+	public static void onReload(Runnable observer) {
+		RELOAD_OBSERVERS.add(observer);
 	}
 
-	static @Nullable Viewmodel get(Weapon weapon) {
-		return loaded.get(weapon.model);
+	public static @Nullable Viewmodel get(Weapon weapon) {
+		return loaded.get(Skin.fallback(weapon));
 	}
 
-	static @Nullable Viewmodel forStack(ItemStack stack) {
-		Skin.Look look = Weapon.plainLook(stack);
+	public static @Nullable Viewmodel forStack(ItemStack stack) {
+		Skin skin = Skin.find(stack);
 
-		if (look == null) {
+		if (skin == null) {
 			return null;
 		}
 
-		Viewmodel viewmodel = loaded.get(look.skin().model);
-		return viewmodel != null ? viewmodel : loaded.get(look.skin().weapon.model);
-	}
-
-	static ThirdPerson.@Nullable Turn turn(Weapon weapon, String clip, float progress) {
-		Viewmodel viewmodel = get(weapon);
-		GltfAnimation animation = viewmodel != null ? viewmodel.clip(clip) : null;
-		return animation != null ? new ThirdPerson.Turn(weapon, viewmodel, animation, progress * animation.duration()) : null;
+		Viewmodel viewmodel = loaded.get(skin);
+		return viewmodel != null ? viewmodel : get(skin.weapon());
 	}
 
 	private static GltfScene load(ResourceManager resources, String name) throws IOException {
-		try (InputStream stream = resources.open(BayonetClient.id("models/gltf/" + name + ".glb"))) {
-			return GlbLoader.loadScene(stream.readAllBytes());
-		}
+		return SceneCache.load(resources, ModIds.of(name));
 	}
 
 	private static @Nullable GltfScene loadOptional(ResourceManager resources, String name) {
 		try {
 			return load(resources, name);
-		} catch (Exception e) {
-			LOGGER.warn("No {} model, so no StatTrak module: {}", name, e.toString());
-			return null;
+		} catch (FileNotFoundException e) {
+			LOGGER.warn("No {} model", name);
+		} catch (IOException | RuntimeException e) {
+			LOGGER.error("Failed to load the {} model", name, e);
 		}
+
+		return null;
 	}
 
-	public static class ReloadListener extends SimpleReloadListener<Map<String, Viewmodel>> {
-		private Map<String, Wear.Mask> wearMaps = Map.of();
+	private static @Nullable StatTrakModule loadStatTrak(ResourceManager resources) {
+		GltfScene model = loadOptional(resources, STATTRAK_MODEL);
+		return model != null ? new StatTrakModule(ModIds.of(STATTRAK_MODEL), model) : null;
+	}
 
+	private static @Nullable Arms loadArms(ResourceManager resources) {
+		List<Arms.Piece> pieces = new ArrayList<>();
+
+		for (String name : ARM_MODELS) {
+			GltfScene model = loadOptional(resources, name);
+
+			if (model != null) {
+				pieces.add(new Arms.Piece(ModIds.of(name), model));
+			}
+		}
+
+		return pieces.isEmpty() ? null : new Arms(pieces);
+	}
+
+	private static Map<Weapon, BoundRig> bindWeapons(ResourceManager resources, @Nullable Arms arms) {
+		Map<Weapon, BoundRig> bindings = new EnumMap<>(Weapon.class);
+
+		for (Weapon weapon : Weapon.values()) {
+			WeaponRig tuning = WeaponRig.of(weapon);
+
+			try {
+				bindings.put(weapon, BoundRig.bind(load(resources, tuning.clipsModel()), tuning, arms));
+			} catch (IOException | RuntimeException e) {
+				LOGGER.error("Failed to load the clips of {}", weapon, e);
+			}
+		}
+
+		return bindings;
+	}
+
+	static final class ReloadListener extends SimpleReloadListener<Map<Skin, Viewmodel>> {
 		@Override
-		protected Map<String, Viewmodel> prepare(PreparableReloadListener.SharedState state) {
-			this.wearMaps = Wear.load(state.resourceManager());
-			Map<String, Viewmodel> result = new HashMap<>();
-			GltfScene statTrak = loadOptional(state.resourceManager(), "stattrak_module");
+		protected Map<Skin, Viewmodel> prepare(PreparableReloadListener.SharedState state) {
+			ResourceManager resources = state.resourceManager();
+			StatTrakModule statTrak = loadStatTrak(resources);
+			Map<Weapon, BoundRig> bindings = bindWeapons(resources, loadArms(resources));
+			Map<Skin, Viewmodel> result = new EnumMap<>(Skin.class);
 
-			for (Weapon weapon : Weapon.values()) {
-				GltfScene clips;
+			for (Skin skin : Skin.values()) {
+				BoundRig binding = bindings.get(skin.weapon());
 
-				try {
-					clips = load(state.resourceManager(), weapon.clips);
-				} catch (Exception e) {
-					LOGGER.error("Failed to load the clips of {}", weapon, e);
+				if (binding == null) {
 					continue;
 				}
 
-				for (Skin skin : Skin.values()) {
-					if (skin.weapon != weapon) {
-						continue;
-					}
-
-					try {
-						GltfScene model = load(state.resourceManager(), skin.model);
-						StatTrakModule module = skin.statTrakKey != null && statTrak != null ? new StatTrakModule(statTrak) : null;
-						result.put(skin.model, new Viewmodel(BayonetClient.id(skin.model), model, clips, weapon.idle, weapon.oneHanded, weapon.gripShift, weapon.handleEnd, module));
-						LOGGER.info("Loaded viewmodel {}: {} clips", skin.model, clips.animations().size());
-					} catch (Exception e) {
-						LOGGER.error("Failed to load viewmodel {}", skin.model, e);
-					}
+				try {
+					GltfScene model = load(resources, skin.model());
+					result.put(skin, new Viewmodel(skin.definition(), model, binding, skin.hasStatTrak() ? statTrak : null));
+					LOGGER.info("Loaded viewmodel {}: {} clips", skin.model(), binding.rig().animations().size());
+				} catch (IOException | RuntimeException e) {
+					LOGGER.error("Failed to load viewmodel {}", skin.model(), e);
 				}
 			}
 
@@ -150,11 +127,9 @@ public final class Viewmodels {
 		}
 
 		@Override
-		protected void apply(Map<String, Viewmodel> prepared, PreparableReloadListener.SharedState state) {
+		protected void apply(Map<Skin, Viewmodel> prepared, PreparableReloadListener.SharedState state) {
 			loaded = prepared;
-			ViewmodelAnimator.reset();
-			GltfTextures.reloaded();
-			Wear.setMaps(this.wearMaps);
+			RELOAD_OBSERVERS.forEach(Runnable::run);
 		}
 	}
 }

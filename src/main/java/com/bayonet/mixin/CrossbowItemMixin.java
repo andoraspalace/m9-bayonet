@@ -1,7 +1,7 @@
 package com.bayonet.mixin;
 
-import com.bayonet.viewmodel.ViewmodelAnimator;
-import net.minecraft.client.Minecraft;
+import com.bayonet.animation.ViewmodelAnimator;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -15,12 +15,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(CrossbowItem.class)
 abstract class CrossbowItemMixin {
 	@Inject(method = "use", at = @At("HEAD"))
-	private void bayonet$onShoot(Level level, Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
-		if (level.isClientSide()
-				&& hand == InteractionHand.MAIN_HAND
-				&& player == Minecraft.getInstance().player
-				&& CrossbowItem.isCharged(player.getItemInHand(hand))) {
-			ViewmodelAnimator.onShoot(Minecraft.getInstance());
+	private void bayonet$onUse(Level level, Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
+		if (level.isClientSide() && player instanceof LocalPlayer localPlayer) {
+			ViewmodelAnimator.onCrossbowUse(localPlayer, hand);
 		}
 	}
 }

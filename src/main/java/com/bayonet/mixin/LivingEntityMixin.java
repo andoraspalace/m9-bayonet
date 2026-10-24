@@ -1,6 +1,6 @@
 package com.bayonet.mixin;
 
-import com.bayonet.viewmodel.StatTrak;
+import com.bayonet.weapon.StatTrak;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityEvent;
 import net.minecraft.world.entity.LivingEntity;
@@ -13,15 +13,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 abstract class LivingEntityMixin {
 	@Inject(method = "handleDamageEvent", at = @At("HEAD"))
 	private void bayonet$onDamage(DamageSource source, CallbackInfo ci) {
-		if (((LivingEntity) (Object) this).level().isClientSide()) {
-			StatTrak.onDamage((LivingEntity) (Object) this, source);
+		LivingEntity self = (LivingEntity) (Object) this;
+
+		if (self.level().isClientSide()) {
+			StatTrak.onDamage(self, source);
 		}
 	}
 
 	@Inject(method = "handleEntityEvent", at = @At("HEAD"))
 	private void bayonet$onDeath(byte id, CallbackInfo ci) {
-		if (id == EntityEvent.DEATH && ((LivingEntity) (Object) this).level().isClientSide()) {
-			StatTrak.onDeath((LivingEntity) (Object) this);
+		LivingEntity self = (LivingEntity) (Object) this;
+
+		if (id == EntityEvent.DEATH && self.level().isClientSide()) {
+			StatTrak.onDeath(self);
 		}
 	}
 }

@@ -1,7 +1,8 @@
 package com.bayonet.mixin;
 
-import com.bayonet.viewmodel.ThirdPerson;
-import com.bayonet.viewmodel.Viewmodels;
+import com.bayonet.animation.ThirdPerson;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
@@ -12,19 +13,20 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(AvatarRenderer.class)
 abstract class AvatarRendererMixin {
-	@Inject(
+	@ModifyReturnValue(
 		method = "getArmPose(Lnet/minecraft/world/entity/Avatar;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/client/model/HumanoidModel$ArmPose;",
-		at = @At("HEAD"),
-		cancellable = true
+		at = @At("RETURN")
 	)
-	private static void bayonet$aimAwp(Avatar avatar, ItemStack itemInHand, InteractionHand hand, CallbackInfoReturnable<HumanoidModel.ArmPose> cir) {
-		if (Viewmodels.Weapon.of(itemInHand) == Viewmodels.Weapon.AWP && !(avatar.isUsingItem() && avatar.getUsedItemHand() != hand)) {
-			cir.setReturnValue(HumanoidModel.ArmPose.CROSSBOW_HOLD);
-		}
+	private static HumanoidModel.ArmPose bayonet$weaponArmPose(
+		HumanoidModel.ArmPose pose,
+		@Local(argsOnly = true) Avatar avatar,
+		@Local(argsOnly = true) ItemStack itemInHand,
+		@Local(argsOnly = true) InteractionHand hand
+	) {
+		return ThirdPerson.armPose(avatar, itemInHand, hand, pose);
 	}
 
 	@Inject(
@@ -32,10 +34,6 @@ abstract class AvatarRendererMixin {
 		at = @At("TAIL")
 	)
 	private void bayonet$extractWeaponTurn(Avatar avatar, AvatarRenderState state, float partialTicks, CallbackInfo ci) {
-		ThirdPerson.Turn turn = ThirdPerson.weaponTurn(avatar, partialTicks);
-
-		if (turn != null) {
-			state.setData(ThirdPerson.WEAPON_TURN, turn);
-		}
+		ThirdPerson.extractWeaponTurn(avatar, state, partialTicks);
 	}
 }

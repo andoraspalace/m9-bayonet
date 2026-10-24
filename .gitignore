@@ -1,22 +1,14 @@
-# gradle
-
 .gradle/
 build/
 out/
 classes/
 
-# eclipse
-
 *.launch
-
-# idea
 
 .idea/
 *.iml
 *.ipr
 *.iws
-
-# vscode
 
 .settings/
 .vscode/
@@ -24,15 +16,9 @@ bin/
 .classpath
 .project
 
-# macos
-
 *.DS_Store
 
-# fabric
-
 run/
-
-# cs2 assets (Valve's files, never commit or publish)
 
 cs2-export/
 tools/cs2-vpk-index.tsv
@@ -43,12 +29,9 @@ src/main/resources/assets/bayonet/models/gltf/
 src/main/resources/assets/bayonet/sounds/
 src/main/resources/assets/bayonet/wear/
 src/main/resources/assets/bayonet/sounds.json
-# the Counter-Strike logo, Valve's trademark
+src/main/resources/assets/bayonet/sound_events.json
 src/main/resources/assets/bayonet/icon.png
-# Source 2 Viewer's export error log
 exceptions.txt
-
-# java
 
 hs_err_*.log
 __pycache__/

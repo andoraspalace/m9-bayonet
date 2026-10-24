@@ -1,8 +1,7 @@
 package com.bayonet.mixin;
 
-import com.bayonet.Settings;
+import com.bayonet.config.Settings;
 import com.bayonet.render.GltfSpecialRenderer;
-import com.bayonet.render.Wear;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.item.SpecialModelWrapper;
@@ -19,13 +18,7 @@ abstract class SpecialModelWrapperMixin {
 	private SpecialModelRenderer<?> specialRenderer;
 
 	@WrapWithCondition(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/item/ItemStackRenderState;setAnimated()V"))
-	private boolean bayonet$animatedOnlyWhenNeeded(ItemStackRenderState output) {
-		if (!(this.specialRenderer instanceof GltfSpecialRenderer)) {
-			return true;
-		}
-
-		output.appendModelIdentityElement(Settings.glint());
-		output.appendModelIdentityElement(Wear.generation());
-		return Settings.glint() || Wear.busy();
+	private boolean bayonet$animateGlintOnlyWhenShown(ItemStackRenderState output) {
+		return !(this.specialRenderer instanceof GltfSpecialRenderer) || Settings.glint();
 	}
 }
