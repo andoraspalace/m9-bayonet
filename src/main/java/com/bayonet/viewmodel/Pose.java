@@ -6,28 +6,35 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-final class Pose {
+public final class Pose {
+	private final GltfScene rig;
 	private final Vector3f[] translations;
 	private final Quaternionf[] rotations;
 	private final Vector3f[] scales;
-	private final Quaternionf scratch = new Quaternionf();
+	private final Matrix4f[] locals;
+	private final Matrix4f[] world;
 
 	Pose(GltfScene rig) {
 		int count = rig.nodes().size();
+		this.rig = rig;
 		this.translations = new Vector3f[count];
 		this.rotations = new Quaternionf[count];
 		this.scales = new Vector3f[count];
+		this.locals = new Matrix4f[count];
+		this.world = new Matrix4f[count];
 
 		for (int i = 0; i < count; i++) {
 			this.translations[i] = new Vector3f();
 			this.rotations[i] = new Quaternionf();
 			this.scales[i] = new Vector3f();
+			this.locals[i] = new Matrix4f();
+			this.world[i] = new Matrix4f();
 		}
 	}
 
-	void sample(GltfScene rig, GltfAnimation clip, float time) {
+	public void sample(GltfAnimation clip, float time) {
 		for (int i = 0; i < this.translations.length; i++) {
-			GltfScene.Node node = rig.nodes().get(i);
+			GltfScene.Node node = this.rig.nodes().get(i);
 			this.translations[i].set(node.translation());
 			this.rotations[i].set(node.rotation());
 			this.scales[i].set(node.scale());
@@ -36,7 +43,7 @@ final class Pose {
 		clip.sample(time, this.translations, this.rotations, this.scales);
 	}
 
-	void set(Pose other) {
+	public void set(Pose other) {
 		for (int i = 0; i < this.translations.length; i++) {
 			this.translations[i].set(other.translations[i]);
 			this.rotations[i].set(other.rotations[i]);
@@ -44,21 +51,19 @@ final class Pose {
 		}
 	}
 
-	void blendFrom(Pose from, float weight) {
+	public void blendFrom(Pose from, float weight) {
 		for (int i = 0; i < this.translations.length; i++) {
-			this.translations[i].set(new Vector3f(from.translations[i]).lerp(this.translations[i], weight));
-			this.rotations[i].set(this.scratch.set(from.rotations[i]).slerp(this.rotations[i], weight));
-			this.scales[i].set(new Vector3f(from.scales[i]).lerp(this.scales[i], weight));
+			from.translations[i].lerp(this.translations[i], weight, this.translations[i]);
+			from.rotations[i].slerp(this.rotations[i], weight, this.rotations[i]);
+			from.scales[i].lerp(this.scales[i], weight, this.scales[i]);
 		}
 	}
 
-	Matrix4f[] localMatrices() {
-		Matrix4f[] local = new Matrix4f[this.translations.length];
-
-		for (int i = 0; i < local.length; i++) {
-			local[i] = new Matrix4f().translationRotateScale(this.translations[i], this.rotations[i], this.scales[i]);
+	Matrix4f[] worldMatrices() {
+		for (int i = 0; i < this.locals.length; i++) {
+			this.locals[i].translationRotateScale(this.translations[i], this.rotations[i], this.scales[i]);
 		}
 
-		return local;
+		return this.rig.worldMatrices(this.locals, this.world);
 	}
 }

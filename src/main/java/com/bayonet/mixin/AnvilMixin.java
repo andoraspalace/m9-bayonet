@@ -1,6 +1,6 @@
 package com.bayonet.mixin;
 
-import com.bayonet.viewmodel.Skin;
+import com.bayonet.weapon.Skin;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.gui.screens.inventory.AnvilScreen;
@@ -14,11 +14,7 @@ import org.spongepowered.asm.mixin.injection.At;
 abstract class AnvilMixin {
 	@WrapOperation(method = "*", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;getHoverName()Lnet/minecraft/network/chat/Component;"))
 	private Component bayonet$vanillaName(ItemStack stack, Operation<Component> original) {
-		if (Skin.of(stack) == null) {
-			return original.call(stack);
-		}
-
 		Component custom = stack.getCustomName();
-		return custom != null ? custom : stack.getItemName();
+		return custom != null && Skin.find(stack) != null ? custom : original.call(stack);
 	}
 }

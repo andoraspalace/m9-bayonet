@@ -1,0 +1,15 @@
+{
+  "parent": "bayonet:item/knife",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [-52.32, 0.1, 141.22],
+      "translation": [-1.61, -1.81, 1.11],
+      "scale": [0.7, 0.7, 0.7]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [127.68, -0.1, 38.78],
+      "translation": [-1.61, -1.81, 1.11],
+      "scale": [0.7, 0.7, 0.7]
+    }
+  }
+}

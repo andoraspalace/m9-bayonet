@@ -1,11 +1,11 @@
 {
   "model": {
     "type": "minecraft:special",
-    "base": "bayonet:item/awp",
+    "base": "bayonet:item/m9_bayonet",
     "model": {
       "type": "bayonet:gltf",
-      "model": "bayonet:awp_default",
-      "rotation": [0, 90, 0]
+      "model": "bayonet:m9_ruby",
+      "rotation": [90, 0, 270]
     }
   }
 }

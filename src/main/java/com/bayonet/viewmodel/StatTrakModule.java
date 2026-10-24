@@ -1,16 +1,11 @@
 package com.bayonet.viewmodel;
 
-import com.bayonet.BayonetClient;
 import com.bayonet.gltf.GltfScene;
-import com.bayonet.render.GltfTextures;
+import com.bayonet.util.SourceUnits;
+import com.google.common.math.IntMath;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
-import net.minecraft.util.LightCoordsUtil;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
@@ -18,102 +13,107 @@ import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
 
 final class StatTrakModule {
-	private static final float INCH = 0.0254F;
+	private static final String ATTACH_BONE = "weapon_offset";
 	private static final Matrix4fc GLTF_TO_SOURCE = new Matrix4f()
 			.set(new Matrix3f(new Vector3f(0.0F, 1.0F, 0.0F), new Vector3f(0.0F, 0.0F, 1.0F), new Vector3f(1.0F, 0.0F, 0.0F)));
-	private static final Matrix4fc ATTACHMENT = new Matrix4f().translation(-4.276766F * INCH, 0.790415F * INCH, -1.474666F * INCH).mul(GLTF_TO_SOURCE);
+	private static final Matrix4fc ATTACHMENT = new Matrix4f()
+			.translation(new Vector3f(-4.276766F, 0.790415F, -1.474666F).mul((float) SourceUnits.METERS_PER_INCH))
+			.mul(GLTF_TO_SOURCE);
+	private static final int RADIX = 10;
 	private static final int DIGITS = 6;
-	private static final int MAX_VALUE = 999999;
+	private static final int MAX_VALUE = IntMath.pow(RADIX, DIGITS) - 1;
+	private static final float DIGIT_STRIP_MIN_U = 0.999F;
 	private static final float ATLAS_COLUMN = 1.0F / 16.0F;
-	private static final int[] QUAD_CORNERS = {0, 1, 2, 2};
 
-	private final GltfScene model;
-	private final Matrix4f[] rest;
-	private final GltfTextures textures;
-	private final boolean[] display;
+	private final RiggedMesh mesh;
+	private final @Nullable DigitStrip[] strips;
+	private final int[] digits = new int[DIGITS + 1];
+	private final Matrix4f attach = new Matrix4f();
+	private final RiggedMesh.GlowingParts glowingDigits = this::digitUvs;
 
-	StatTrakModule(GltfScene model) {
-		this.model = model;
-		this.rest = model.worldMatrices(model.restLocalMatrices());
-		this.textures = new GltfTextures(BayonetClient.id("gltf/stattrak_module"), model.images());
-		this.display = new boolean[model.parts().size()];
+	StatTrakModule(Identifier id, GltfScene model) {
+		this.mesh = new RiggedMesh(id, model);
+		this.strips = new DigitStrip[model.parts().size()];
 
-		for (int p = 0; p < this.display.length; p++) {
-			float[] uvs = model.parts().get(p).uvs();
-			boolean digits = uvs.length > 0;
-
-			for (int i = 0; i < uvs.length && digits; i += 2) {
-				digits = uvs[i] >= 0.999F;
-			}
-
-			this.display[p] = digits;
+		for (int p = 0; p < this.strips.length; p++) {
+			this.strips[p] = DigitStrip.of(model.parts().get(p).uvs());
 		}
 	}
 
-	void submit(Matrix4fc attachBone, int value, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int lightCoords) {
-		Matrix4f module = new Matrix4f(attachBone).mul(ATTACHMENT);
-		int[] digits = new int[DIGITS + 1];
+	@Nullable Mount mountOn(GltfScene weapon) {
+		int bone = weapon.findNode(ATTACH_BONE);
+		return bone >= 0 ? new Mount(this, bone) : null;
+	}
 
-		for (int slot = DIGITS, rest = Math.min(value, MAX_VALUE); slot >= 1; slot--, rest /= 10) {
-			digits[slot] = rest % 10;
-		}
-
-		for (int p = 0; p < this.model.parts().size(); p++) {
-			GltfScene.Part part = this.model.parts().get(p);
-			Matrix4f partRest = this.rest[part.node()];
-			Matrix4f world = new Matrix4f(module);
-
-			if (partRest != null) {
-				world.mul(partRest);
-			}
-
-			Identifier texture = this.textures.get(part.image());
-			boolean display = this.display[p];
-			RenderType renderType = display ? RenderTypes.eyes(texture) : RenderTypes.entitySolid(texture);
-			int light = display ? LightCoordsUtil.FULL_BRIGHT : lightCoords;
-			submitNodeCollector.submitCustomGeometry(
-				poseStack, renderType, (pose, buffer) -> emit(part, world, display ? digits : null, pose, buffer, light)
-			);
+	record Mount(StatTrakModule module, int bone) {
+		void submit(Matrix4f[] weaponWorld, int value, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int lightCoords, float reflections) {
+			this.module.submit(weaponWorld[this.bone], value, poseStack, submitNodeCollector, lightCoords, reflections);
 		}
 	}
 
-	private static void emit(GltfScene.Part part, Matrix4f world, int @Nullable [] digits, PoseStack.Pose pose, VertexConsumer buffer, int light) {
-		Matrix3f normalMatrix = world.normal(new Matrix3f());
-		Vector3f position = new Vector3f();
-		Vector3f normal = new Vector3f();
-		float[] positions = part.positions();
-		float[] normals = part.normals();
-		float[] uvs = part.uvs();
-		int[] indices = part.indices();
+	private void submit(Matrix4fc attachBone, int value, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int lightCoords, float reflections) {
+		this.mesh.place(attachBone.mul(ATTACHMENT, this.attach));
+		this.mesh.pose();
+		this.showDigits(value);
+		this.mesh.submit(poseStack, submitNodeCollector, lightCoords, reflections, this.glowingDigits);
+	}
 
-		for (int t = 0; t < indices.length; t += 3) {
-			for (int corner : QUAD_CORNERS) {
-				int v = indices[t + corner];
-				world.transformPosition(positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2], position);
+	private float @Nullable [] digitUvs(int part) {
+		DigitStrip strip = this.strips[part];
+		return strip != null ? strip.uvs(this.digits) : null;
+	}
 
-				if (normals != null) {
-					normalMatrix.transform(normals[v * 3], normals[v * 3 + 1], normals[v * 3 + 2], normal).normalize();
-				} else {
-					normal.set(0.0F, 1.0F, 0.0F);
-				}
+	private void showDigits(int value) {
+		for (int slot = DIGITS, remaining = Math.min(value, MAX_VALUE); slot >= 1; slot--, remaining /= RADIX) {
+			this.digits[slot] = remaining % RADIX;
+		}
+	}
 
-				float u = uvs[v * 2];
-				float uv = uvs[v * 2 + 1];
+	private static final class DigitStrip {
+		private final int[] slots;
+		private final float[] offsets;
+		private final float[] uvs;
 
-				if (digits != null) {
-					int slot = Math.clamp((int) Math.floor(u), 1, DIGITS);
-					float within = u - slot - (slot - 1) * ATLAS_COLUMN;
-					u = (digits[slot] + 1) * ATLAS_COLUMN + within;
-					uv = uv - (float) Math.floor(uv);
-				}
+		private DigitStrip(int[] slots, float[] offsets, float[] uvs) {
+			this.slots = slots;
+			this.offsets = offsets;
+			this.uvs = uvs;
+		}
 
-				buffer.addVertex(pose, position.x, position.y, position.z)
-						.setColor(-1)
-						.setUv(u, uv)
-						.setOverlay(OverlayTexture.NO_OVERLAY)
-						.setLight(light)
-						.setNormal(pose, normal.x, normal.y, normal.z);
+		static @Nullable DigitStrip of(float[] uvs) {
+			boolean strip = uvs.length > 0;
+
+			for (int i = 0; i < uvs.length && strip; i += 2) {
+				strip = uvs[i] >= DIGIT_STRIP_MIN_U;
 			}
+
+			if (!strip) {
+				return null;
+			}
+
+			int vertexCount = uvs.length / 2;
+			int[] slots = new int[vertexCount];
+			float[] offsets = new float[vertexCount];
+			float[] shown = new float[uvs.length];
+
+			for (int vertex = 0; vertex < vertexCount; vertex++) {
+				float u = uvs[vertex * 2];
+				float v = uvs[vertex * 2 + 1];
+				int slot = Math.clamp((int) Math.floor(u), 1, DIGITS);
+				slots[vertex] = slot;
+				offsets[vertex] = u - slot - (slot - 1) * ATLAS_COLUMN;
+				shown[vertex * 2 + 1] = v - (float) Math.floor(v);
+			}
+
+			return new DigitStrip(slots, offsets, shown);
+		}
+
+		float[] uvs(int[] digits) {
+			for (int vertex = 0; vertex < this.slots.length; vertex++) {
+				this.uvs[vertex * 2] = (digits[this.slots[vertex]] + 1) * ATLAS_COLUMN + this.offsets[vertex];
+			}
+
+			return this.uvs;
 		}
 	}
 }

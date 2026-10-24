@@ -1,7 +1,7 @@
 package com.bayonet.mixin;
 
-import com.bayonet.viewmodel.ViewmodelAnimator;
-import com.bayonet.viewmodel.Viewmodels;
+import com.bayonet.animation.Offhand;
+import com.bayonet.animation.ViewmodelAnimator;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -32,7 +32,7 @@ abstract class FirstPersonHandsAndItemsRendererMixin {
 		CallbackInfo ci
 	) {
 		if (hand == InteractionHand.OFF_HAND) {
-			if (Viewmodels.Weapon.of(itemStack) != null || Viewmodels.Weapon.of(state.mainHandItem) != null) {
+			if (Offhand.isHiddenInFirstPerson(itemStack)) {
 				ci.cancel();
 			}
 		} else if (!state.isScoping

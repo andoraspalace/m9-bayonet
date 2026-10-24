@@ -1,0 +1,11 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "bayonet:item/butterfly",
+    "model": {
+      "type": "bayonet:gltf",
+      "model": "bayonet:butterfly_default",
+      "rotation": [90, 0, 270]
+    }
+  }
+}
